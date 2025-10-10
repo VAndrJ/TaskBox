@@ -37,3 +37,7 @@ public final class TaskBox {
         cancelAll()
     }
 }
+
+extension TaskBox: CustomDebugStringConvertible {
+    public var debugDescription: String { "TaskBox(tasks: \(tasks.count))" }
+}

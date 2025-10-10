@@ -101,7 +101,12 @@ struct ContentView: View {
             }
             .navigationTitle("TaskBox Examples")
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem {
+                    Button("Replace box") {
+                        viewModel.box = .init()
+                    }
+                }
+                ToolbarItem {
                     Button("Cancel All") {
                         viewModel.cancelAllTasks()
                     }
@@ -166,7 +171,9 @@ final class TaskBoxExamplesViewModel: ObservableObject {
     @Published var cancellationStatus: TaskStatus = .idle
     @Published var parallelStatus: TaskStatus = .idle
 
-    private let box = TaskBox()
+    var box = TaskBox() {
+        didSet { print("box replaced (new: \(box), old: \(oldValue))") }
+    }
 
     func runDataFetch() {
         dataFetchStatus = .running
@@ -267,6 +274,9 @@ final class TaskBoxExamplesViewModel: ObservableObject {
     func runStreamProcessing() {
         streamStatus = .running
         let numberStream = AsyncStream<Int> { continuation in
+            continuation.onTermination = { termination in
+                print("runStreamProcessing AsyncStream terminated with:", termination)
+            }
             Task {
                 for i in 1...5 {
                     try? await Task.sleep(nanoseconds: 500_000_000)
@@ -291,6 +301,9 @@ final class TaskBoxExamplesViewModel: ObservableObject {
     func runTimerStream() {
         timerStatus = .running
         let timerStream = AsyncStream<Date> { continuation in
+            continuation.onTermination = { termination in
+                print("runTimerStream AsyncStream terminated with:", termination)
+            }
             let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
                 continuation.yield(Date())
             }
