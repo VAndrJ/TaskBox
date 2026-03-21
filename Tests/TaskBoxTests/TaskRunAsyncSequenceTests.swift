@@ -591,7 +591,7 @@ struct TaskRunAsyncSequenceTests {
         let asyncSequence = AsyncThrowingStream<String, Error> { continuation in
             Task {
                 continuation.yield("value1")
-                try? await Task.sleep(nanoseconds: .millisecond * 5)
+                try? await Task.sleep(nanoseconds: .millisecond * 6)
                 continuation.finish(throwing: TestError())
             }
         }
@@ -612,7 +612,7 @@ struct TaskRunAsyncSequenceTests {
         )
 
         Task {
-            try? await Task.sleep(nanoseconds: .millisecond * 5)
+            try? await Task.sleep(nanoseconds: .millisecond * 4)
             task.cancel()
         }
 
@@ -1203,7 +1203,7 @@ struct TaskRunAsyncSequenceTests {
         let asyncSequence = AsyncThrowingStream<Void, Error> { continuation in
             Task {
                 continuation.yield(())
-                try? await Task.sleep(nanoseconds: .millisecond * 5)
+                try? await Task.sleep(nanoseconds: .millisecond * 6)
                 continuation.finish(throwing: TestError())
             }
         }
@@ -1224,7 +1224,7 @@ struct TaskRunAsyncSequenceTests {
         )
 
         Task {
-            try? await Task.sleep(nanoseconds: .millisecond * 5)
+            try? await Task.sleep(nanoseconds: .millisecond * 4)
             task.cancel()
         }
 
