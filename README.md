@@ -245,6 +245,13 @@ class StreamProcessor {
 - ✅ **Clear separation of concerns** - stream listening vs value processing
 - ✅ **Structured error handling** for failures
 
+
+### Actor Isolation
+
+TaskBox uses Swift 6.2 package-level default isolation with `MainActor` (`.defaultIsolation(MainActor.self)` in `Package.swift`), 
+so public APIs of `TaskBox` class are MainActor-isolated by default.
+
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
