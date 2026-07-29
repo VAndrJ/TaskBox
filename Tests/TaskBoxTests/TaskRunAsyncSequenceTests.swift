@@ -664,6 +664,30 @@ struct TaskRunAsyncSequenceTests {
         #expect(completedCalled == true)
     }
 
+    @Test("run to async sequence does not request another value after callback cancellation")
+    func testAsyncSequenceDoesNotRequestValueAfterCallbackCancellation() async {
+        let nextCallCounter = NextCallCounter()
+        let asyncSequence = CountingAsyncSequence(
+            elements: [1, 2],
+            onNext: {
+                await nextCallCounter.increment()
+            }
+        )
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: { _ in
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            }
+        )
+
+        await task.value
+        let nextCallCount = await nextCallCounter.value
+
+        #expect(nextCallCount == 1)
+    }
+
     @Test("run to void async sequence receives all values")
     func testRunToVoidAsyncSequenceReceivesAllValues() async {
         var valueCount = 0
@@ -1276,6 +1300,30 @@ struct TaskRunAsyncSequenceTests {
         #expect(completedCalled == true)
     }
 
+    @Test("run to void async sequence does not request another value after callback cancellation")
+    func testVoidAsyncSequenceDoesNotRequestValueAfterCallbackCancellation() async {
+        let nextCallCounter = NextCallCounter()
+        let asyncSequence = CountingAsyncSequence(
+            elements: [(), ()],
+            onNext: {
+                await nextCallCounter.increment()
+            }
+        )
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: {
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            }
+        )
+
+        await task.value
+        let nextCallCount = await nextCallCounter.value
+
+        #expect(nextCallCount == 1)
+    }
+
     @Test("run to void async sequence signal counting")
     func testVoidAsyncSequenceSignalCounting() async {
         var signalCount = 0
@@ -1304,5 +1352,49 @@ struct TaskRunAsyncSequenceTests {
 
         #expect(signalCount == numberOfSignals)
         #expect(completedCalled == true)
+    }
+}
+
+private actor NextCallCounter {
+    private(set) var value = 0
+
+    func increment() {
+        value += 1
+    }
+}
+
+private nonisolated struct CountingAsyncSequence<Element: Sendable>: AsyncSequence, Sendable {
+    private let elements: [Element]
+    private let onNext: @Sendable () async -> Void
+
+    init(elements: [Element], onNext: @escaping @Sendable () async -> Void) {
+        self.elements = elements
+        self.onNext = onNext
+    }
+
+    func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(elements: elements, onNext: onNext)
+    }
+
+    nonisolated struct AsyncIterator: AsyncIteratorProtocol, Sendable {
+        private let elements: [Element]
+        private let onNext: @Sendable () async -> Void
+        private var index = 0
+
+        init(elements: [Element], onNext: @escaping @Sendable () async -> Void) {
+            self.elements = elements
+            self.onNext = onNext
+        }
+
+        mutating func next() async -> Element? {
+            await onNext()
+            guard index < elements.endIndex else {
+                return nil
+            }
+            defer {
+                index += 1
+            }
+            return elements[index]
+        }
     }
 }

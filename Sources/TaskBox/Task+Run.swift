@@ -389,7 +389,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Sequence: AsyncSequence>(
+    public nonisolated static func run<Sequence: AsyncSequence & SendableMetatype>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         sequence: sending Sequence,
@@ -397,14 +397,22 @@ extension Task where Success == Void, Failure == Never {
         @_inheritActorContext onError: sending @escaping @isolated(any) (any Error) async -> Void = { _ in },
         @_inheritActorContext onCanceled: sending @escaping @isolated(any) () async -> Void = {},
         @_inheritActorContext onCompleted: sending @escaping @isolated(any) () async -> Void = {}
-    ) -> Self where Sequence.Element: Sendable {
+    ) -> Self where Sequence.Element: Sendable, Sequence.AsyncIterator: SendableMetatype {
         return Task(
             name: name,
             priority: priority
         ) {
             var wasCancelled = false
             do {
-                for try await unsafe value in sequence {
+                var iterator = sequence.makeAsyncIterator()
+                while true {
+                    if CancellationCheckTask.isCancelled {
+                        wasCancelled = true
+                        break
+                    }
+                    guard let value = try await iterator.next() else {
+                        break
+                    }
                     if CancellationCheckTask.isCancelled {
                         wasCancelled = true
                         break
@@ -484,7 +492,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Sequence: AsyncSequence>(
+    public nonisolated static func run<Sequence: AsyncSequence & SendableMetatype>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         sequence: sending Sequence,
@@ -492,14 +500,22 @@ extension Task where Success == Void, Failure == Never {
         @_inheritActorContext onError: sending @escaping @isolated(any) (any Error) async -> Void = { _ in },
         @_inheritActorContext onCanceled: sending @escaping @isolated(any) () async -> Void = {},
         @_inheritActorContext onCompleted: sending @escaping @isolated(any) () async -> Void = {}
-    ) -> Self where Sequence.Element == Void {
+    ) -> Self where Sequence.Element == Void, Sequence.AsyncIterator: SendableMetatype {
         return Task(
             name: name,
             priority: priority
         ) {
             var wasCancelled = false
             do {
-                for try await unsafe _ in sequence {
+                var iterator = sequence.makeAsyncIterator()
+                while true {
+                    if CancellationCheckTask.isCancelled {
+                        wasCancelled = true
+                        break
+                    }
+                    guard try await iterator.next() != nil else {
+                        break
+                    }
                     if CancellationCheckTask.isCancelled {
                         wasCancelled = true
                         break
