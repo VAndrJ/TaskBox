@@ -9,7 +9,7 @@ import Testing
 
 @testable import TaskBox
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct TaskRunNonThrowingTests {
     @Test("run executes operation and calls onSuccess when not cancelled")
     func testRunSuccessFlow() async {

@@ -9,7 +9,7 @@ import Testing
 
 @testable import TaskBox
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct TaskRunAsyncSequenceTests {
     @Test("run to async sequence receives all values")
     func testRunToAsyncSequenceReceivesAllValues() async {
@@ -625,7 +625,7 @@ struct TaskRunAsyncSequenceTests {
     }
 
     @Test("run to async sequence cancellation check between values")
-    func testAsyncSequenceCancellationBetweenValues() async {
+    func testAsyncSequenceCancellationBetweenValues() async throws {
         var receivedValues: [String] = []
         var cancelledCalled = false
         var completedCalled = false
@@ -650,13 +650,12 @@ struct TaskRunAsyncSequenceTests {
                 completedCalled = true
             }
         )
-        Task {
-            while receivedValues.isEmpty {
-                try? await Task.sleep(nanoseconds: .millisecond)
-            }
+        let cancellationTask = Task {
+            try await waitUntil { !receivedValues.isEmpty }
             task.cancel()
         }
 
+        try await cancellationTask.value
         await task.value
 
         #expect(receivedValues == ["first"])
@@ -1261,7 +1260,7 @@ struct TaskRunAsyncSequenceTests {
     }
 
     @Test("run to void async sequence cancellation check between values")
-    func testVoidAsyncSequenceCancellationBetweenValues() async {
+    func testVoidAsyncSequenceCancellationBetweenValues() async throws {
         var valueCount = 0
         var cancelledCalled = false
         var completedCalled = false
@@ -1286,13 +1285,12 @@ struct TaskRunAsyncSequenceTests {
                 completedCalled = true
             }
         )
-        Task {
-            while valueCount == 0 {
-                try? await Task.sleep(nanoseconds: .millisecond)
-            }
+        let cancellationTask = Task {
+            try await waitUntil { valueCount > 0 }
             task.cancel()
         }
 
+        try await cancellationTask.value
         await task.value
 
         #expect(valueCount == 1)
