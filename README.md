@@ -252,9 +252,12 @@ class StreamProcessor {
 
 ### Actor Isolation
 
-TaskBox uses Swift 6.2 package-level default isolation with `MainActor` (`.defaultIsolation(MainActor.self)` in `Package.swift`), 
-so public APIs of `TaskBox` class are MainActor-isolated by default.
+`TaskBox` does not impose a global actor. Its state is protected by a lock, and its synchronous API can be used safely from `MainActor`,
+custom actors, and nonisolated code. Custom `CancellableTask` conformers must be `Sendable` and make `cancel()` safe to call from any
+concurrency domain.
 
+The `Task.run` factory methods are explicitly nonisolated. Their operation and callback closures inherit isolation from the call site:
+calls from `MainActor` remain MainActor-isolated, while calls from another actor retain that actor's isolation.
 
 ## 📄 License
 

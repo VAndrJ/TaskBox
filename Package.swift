@@ -2,7 +2,11 @@
 
 import PackageDescription
 
-let settings: [SwiftSetting] = [
+let librarySettings: [SwiftSetting] = [
+    .strictMemorySafety()
+]
+
+let testSettings: [SwiftSetting] = [
     .defaultIsolation(MainActor.self),
     .strictMemorySafety(),
 ]
@@ -25,12 +29,12 @@ let package = Package(
     targets: [
         .target(
             name: "TaskBox",
-            swiftSettings: settings
+            swiftSettings: librarySettings
         ),
         .testTarget(
             name: "TaskBoxTests",
             dependencies: ["TaskBox"],
-            swiftSettings: settings
+            swiftSettings: testSettings
         ),
     ],
 )

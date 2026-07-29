@@ -39,5 +39,18 @@ struct ExternalClient {
         precondition(receivedSignalCount == 1)
 
         box.cancelAll()
+
+        let detachedClient = Task.detached {
+            let detachedBox = TaskBox()
+            let detachedTask = Task {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            detachedTask.store(in: detachedBox)
+            detachedBox.cancelAll()
+
+            await detachedTask.value
+            precondition(detachedTask.isCancelled)
+        }
+        await detachedClient.value
     }
 }

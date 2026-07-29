@@ -151,9 +151,41 @@ struct TaskBoxTests {
         box.insert(quickTask)
         box.cancelAll()
     }
+
+    @Test("TaskBox safely handles concurrent insertion and cancellation")
+    func testTaskBoxConcurrentAccess() async {
+        let box = TaskBox()
+        let managedTasks = (0..<256).map { _ in
+            Task.detached {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+            }
+        }
+        var accessTasks = managedTasks.map { task in
+            Task.detached {
+                task.store(in: box)
+            }
+        }
+        accessTasks += (0..<32).map { _ in
+            Task.detached {
+                box.cancelAll()
+            }
+        }
+
+        for accessTask in accessTasks {
+            await accessTask.value
+        }
+        box.cancelAll()
+        for managedTask in managedTasks {
+            await managedTask.value
+        }
+        let allTasksWereCancelled = managedTasks.allSatisfy { $0.isCancelled }
+
+        #expect(allTasksWereCancelled)
+        #expect(box.debugDescription == "TaskBox(tasks: 0)")
+    }
 }
 
-private final class ReentrantCancellableTask: CancellableTask {
+private nonisolated final class ReentrantCancellableTask: CancellableTask, @unchecked Sendable {
     let box: TaskBox
     var spawnedTask: Task<Void, Never>?
 

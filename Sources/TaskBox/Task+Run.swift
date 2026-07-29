@@ -60,7 +60,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Result: Sendable>(
+    public nonisolated static func run<Result: Sendable>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async -> Result,
@@ -135,7 +135,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run(
+    public nonisolated static func run(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async -> Void,
@@ -214,7 +214,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Result: Sendable>(
+    public nonisolated static func run<Result: Sendable>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async throws -> Result,
@@ -302,7 +302,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run(
+    public nonisolated static func run(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async throws -> Void,
