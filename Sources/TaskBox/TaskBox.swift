@@ -11,6 +11,7 @@ import Foundation
 ///
 /// The `TaskBox` class provides a simple way to store, insert, and cancel groups of `Tasks`.
 /// When the `TaskBox` instance is deallocated, all stored `Tasks` are automatically canceled.
+@MainActor
 public final class TaskBox {
     private var tasks: [any CancellableTask] = []
 
@@ -27,10 +28,11 @@ public final class TaskBox {
     ///
     /// This method can be used to immediately stop all ongoing tasks managed by this box.
     public func cancelAll() {
-        tasks.forEach {
-            $0.cancel()
-        }
+        let tasksToCancel = tasks
         tasks.removeAll()
+        for task in tasksToCancel {
+            task.cancel()
+        }
     }
 
     isolated deinit {
