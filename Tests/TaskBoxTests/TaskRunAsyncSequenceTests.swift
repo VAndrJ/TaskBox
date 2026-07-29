@@ -303,6 +303,36 @@ struct TaskRunAsyncSequenceTests {
         #expect(callOrder == ["onValue-1", "beforeError", "onError", "onCompleted"])
     }
 
+    @Test("run to async sequence keeps error and cancellation callbacks mutually exclusive")
+    func testAsyncSequenceErrorCallbackCancellationDoesNotCallOnCanceled() async {
+        var callOrder: [String] = []
+        struct TestError: Error {}
+        let asyncSequence = AsyncThrowingStream<Int, Error> { continuation in
+            continuation.finish(throwing: TestError())
+        }
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: { _ in },
+            onError: { _ in
+                callOrder.append("onError")
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            },
+            onCanceled: {
+                callOrder.append("onCanceled")
+            },
+            onCompleted: {
+                callOrder.append("onCompleted")
+            }
+        )
+
+        await task.value
+
+        #expect(task.isCancelled)
+        #expect(callOrder == ["onError", "onCompleted"])
+    }
+
     @Test("run to async sequence handles cancellation during iteration")
     func testAsyncSequenceCancellationDuringIteration() async {
         var receivedValues: [Int] = []
@@ -936,6 +966,36 @@ struct TaskRunAsyncSequenceTests {
         await task.value
 
         #expect(callOrder == ["onValue", "beforeError", "onError", "onCompleted"])
+    }
+
+    @Test("run to void async sequence keeps error and cancellation callbacks mutually exclusive")
+    func testVoidAsyncSequenceErrorCallbackCancellationDoesNotCallOnCanceled() async {
+        var callOrder: [String] = []
+        struct TestError: Error {}
+        let asyncSequence = AsyncThrowingStream<Void, Error> { continuation in
+            continuation.finish(throwing: TestError())
+        }
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: {},
+            onError: { _ in
+                callOrder.append("onError")
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            },
+            onCanceled: {
+                callOrder.append("onCanceled")
+            },
+            onCompleted: {
+                callOrder.append("onCompleted")
+            }
+        )
+
+        await task.value
+
+        #expect(task.isCancelled)
+        #expect(callOrder == ["onError", "onCompleted"])
     }
 
     @Test("run to void async sequence handles cancellation during iteration")

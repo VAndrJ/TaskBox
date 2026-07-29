@@ -8,10 +8,10 @@
 import Foundation
 
 extension Task where Success == Void, Failure == Never {
-    /// Creates a new `Task` that executes an async operation and provides structured callbacks for different outcomes.
+    /// Creates a new `Task` that executes an async operation and provides organized callbacks for different outcomes.
     ///
-    /// This method provides a clean, structured way to handle async operations with distinct callbacks for success, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -82,10 +82,10 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that executes an async operation that returns `Void` and provides structured callbacks for different outcomes.
+    /// Creates a new `Task` that executes an async operation that returns `Void` and provides organized callbacks for different outcomes.
     ///
-    /// This method provides a clean, structured way to handle async operations that don't return a value, with distinct callbacks for success, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -157,10 +157,10 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that executes a throwing async operation with structured callbacks for different outcomes and error handling.
+    /// Creates a new `Task` that executes a throwing async operation with organized callbacks for different outcomes and error handling.
     ///
-    /// This method provides a clean, structured way to handle throwing async operations with distinct callbacks for success, error, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, error, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -245,10 +245,10 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that executes a throwing async operation with structured callbacks for different outcomes and error handling.
+    /// Creates a new `Task` that executes a throwing async operation with organized callbacks for different outcomes and error handling.
     ///
-    /// This method provides a clean, structured way to handle throwing async operations that don't return a value, with distinct callbacks for success, error, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, error, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -333,11 +333,11 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that runs an async sequence and provides structured callbacks for each value, cancellation, and completion.
+    /// Creates a new `Task` that runs an async sequence and provides organized callbacks for each value, cancellation, and completion.
     ///
-    /// This method provides a clean, structured way to handle async sequences with distinct callbacks for each value received,
-    /// cancellation, and completion scenarios. It's designed to help organize async sequence handling while maintaining clear
-    /// control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize values, errors, cancellation, and completion while maintaining
+    /// clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -356,6 +356,8 @@ extension Task where Success == Void, Failure == Never {
     /// 2. **Error case:** If the task isn't canceled but the sequence throws an error, `onError` is called.
     /// 3. **Cancellation case:** If the task is canceled, `onCanceled` is called.
     /// 4. **Always:** The `onCompleted` callback is always called last, regardless of error or cancellation.
+    ///
+    /// The error and cancellation callbacks are mutually exclusive. The terminal outcome is selected before either callback runs.
     ///
     /// ## Usage Example
     ///
@@ -403,6 +405,7 @@ extension Task where Success == Void, Failure == Never {
             priority: priority
         ) {
             var wasCancelled = false
+            var terminalError: (any Error)?
             do {
                 var iterator = sequence.makeAsyncIterator()
                 while true {
@@ -423,24 +426,26 @@ extension Task where Success == Void, Failure == Never {
                 if CancellationCheckTask.isCancelled {
                     wasCancelled = true
                 } else {
-                    await onError(error)
+                    terminalError = error
                 }
             }
-            if !wasCancelled && CancellationCheckTask.isCancelled {
+            if terminalError == nil && !wasCancelled && CancellationCheckTask.isCancelled {
                 wasCancelled = true
             }
-            if wasCancelled {
+            if let terminalError {
+                await onError(terminalError)
+            } else if wasCancelled {
                 await onCanceled()
             }
             await onCompleted()
         }
     }
 
-    /// Creates a new `Task` that runs an async sequence with `Void` elements and provides structured callbacks for each value, cancellation, and completion.
+    /// Creates a new `Task` that runs an async sequence with `Void` elements and provides organized callbacks for each value, cancellation, and completion.
     ///
-    /// This method provides a clean, structured way to handle async sequences that emit `Void` values (typically used for signaling events
-    /// rather than data), with distinct callbacks for each value received, cancellation, and completion scenarios. It's designed to help
-    /// organize async sequence handling while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize signals, errors, cancellation, and completion while maintaining
+    /// clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -459,6 +464,8 @@ extension Task where Success == Void, Failure == Never {
     /// 2. **Error case:** If the task isn't canceled but the sequence throws an error, `onError` is called.
     /// 3. **Cancellation case:** If the task is canceled, `onCanceled` is called.
     /// 4. **Always:** The `onCompleted` callback is always called last, regardless of error or cancellation.
+    ///
+    /// The error and cancellation callbacks are mutually exclusive. The terminal outcome is selected before either callback runs.
     ///
     /// ## Usage Example
     ///
@@ -506,6 +513,7 @@ extension Task where Success == Void, Failure == Never {
             priority: priority
         ) {
             var wasCancelled = false
+            var terminalError: (any Error)?
             do {
                 var iterator = sequence.makeAsyncIterator()
                 while true {
@@ -526,13 +534,15 @@ extension Task where Success == Void, Failure == Never {
                 if CancellationCheckTask.isCancelled {
                     wasCancelled = true
                 } else {
-                    await onError(error)
+                    terminalError = error
                 }
             }
-            if !wasCancelled && CancellationCheckTask.isCancelled {
+            if terminalError == nil && !wasCancelled && CancellationCheckTask.isCancelled {
                 wasCancelled = true
             }
-            if wasCancelled {
+            if let terminalError {
+                await onError(terminalError)
+            } else if wasCancelled {
                 await onCanceled()
             }
             await onCompleted()

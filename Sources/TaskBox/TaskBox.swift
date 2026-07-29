@@ -10,7 +10,7 @@ import Foundation
 /// A container for managing multiple `Tasks` cancellation.
 ///
 /// The `TaskBox` class provides a simple way to store, insert, and cancel groups of `Tasks`.
-/// When the `TaskBox` instance is deallocated, all stored `Tasks` are automatically canceled.
+/// When the `TaskBox` instance is deallocated, cancellation is automatically requested for all stored `Tasks`.
 @MainActor
 public final class TaskBox {
     private var tasks: [any CancellableTask] = []
@@ -24,9 +24,10 @@ public final class TaskBox {
         tasks.append(task)
     }
 
-    /// Cancels all managed tasks and removes them from the box.
+    /// Requests cancellation for all managed tasks and removes them from the box.
     ///
-    /// This method can be used to immediately stop all ongoing tasks managed by this box.
+    /// Task cancellation is cooperative. Each task must observe and respond to the cancellation request,
+    /// so ongoing work is not guaranteed to stop immediately.
     public func cancelAll() {
         let tasksToCancel = tasks
         tasks.removeAll()
