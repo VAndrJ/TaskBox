@@ -9,7 +9,7 @@ import Testing
 
 @testable import TaskBox
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct TaskBoxTests {
     @Test("TaskBox can store and cancel tasks")
     func testTaskBoxBasicFunctionality() async {
@@ -91,6 +91,23 @@ struct TaskBoxTests {
         #expect(task.isCancelled)
     }
 
+    @Test("TaskBox retains tasks inserted during cancellation")
+    func testReentrantInsertionDuringCancelAll() {
+        let box = TaskBox()
+        let reentrantTask = ReentrantCancellableTask(box: box)
+        box.insert(reentrantTask)
+
+        box.cancelAll()
+
+        #expect(reentrantTask.spawnedTask?.isCancelled == false)
+        #expect(box.debugDescription == "TaskBox(tasks: 1)")
+
+        box.cancelAll()
+
+        #expect(reentrantTask.spawnedTask?.isCancelled == true)
+        #expect(box.debugDescription == "TaskBox(tasks: 0)")
+    }
+
     @Test("TaskBox can store multiple different task types")
     func testTaskBoxWithDifferentTaskTypes() async {
         let box = TaskBox()
@@ -133,5 +150,54 @@ struct TaskBoxTests {
 
         box.insert(quickTask)
         box.cancelAll()
+    }
+
+    @Test("TaskBox safely handles concurrent insertion and cancellation")
+    func testTaskBoxConcurrentAccess() async {
+        let box = TaskBox()
+        let managedTasks = (0..<256).map { _ in
+            Task.detached {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+            }
+        }
+        var accessTasks = managedTasks.map { task in
+            Task.detached {
+                task.store(in: box)
+            }
+        }
+        accessTasks += (0..<32).map { _ in
+            Task.detached {
+                box.cancelAll()
+            }
+        }
+
+        for accessTask in accessTasks {
+            await accessTask.value
+        }
+        box.cancelAll()
+        for managedTask in managedTasks {
+            await managedTask.value
+        }
+        let allTasksWereCancelled = managedTasks.allSatisfy { $0.isCancelled }
+
+        #expect(allTasksWereCancelled)
+        #expect(box.debugDescription == "TaskBox(tasks: 0)")
+    }
+}
+
+private nonisolated final class ReentrantCancellableTask: CancellableTask, @unchecked Sendable {
+    let box: TaskBox
+    var spawnedTask: Task<Void, Never>?
+
+    init(box: TaskBox) {
+        self.box = box
+    }
+
+    func cancel() {
+        let task = Task<Void, Never> {
+            try? await Task.sleep(nanoseconds: .second)
+        }
+        spawnedTask = task
+        box.insert(task)
     }
 }

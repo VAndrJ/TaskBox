@@ -9,7 +9,7 @@ import Testing
 
 @testable import TaskBox
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct TaskRunAsyncSequenceTests {
     @Test("run to async sequence receives all values")
     func testRunToAsyncSequenceReceivesAllValues() async {
@@ -301,6 +301,36 @@ struct TaskRunAsyncSequenceTests {
         await task.value
 
         #expect(callOrder == ["onValue-1", "beforeError", "onError", "onCompleted"])
+    }
+
+    @Test("run to async sequence keeps error and cancellation callbacks mutually exclusive")
+    func testAsyncSequenceErrorCallbackCancellationDoesNotCallOnCanceled() async {
+        var callOrder: [String] = []
+        struct TestError: Error {}
+        let asyncSequence = AsyncThrowingStream<Int, Error> { continuation in
+            continuation.finish(throwing: TestError())
+        }
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: { _ in },
+            onError: { _ in
+                callOrder.append("onError")
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            },
+            onCanceled: {
+                callOrder.append("onCanceled")
+            },
+            onCompleted: {
+                callOrder.append("onCompleted")
+            }
+        )
+
+        await task.value
+
+        #expect(task.isCancelled)
+        #expect(callOrder == ["onError", "onCompleted"])
     }
 
     @Test("run to async sequence handles cancellation during iteration")
@@ -625,7 +655,7 @@ struct TaskRunAsyncSequenceTests {
     }
 
     @Test("run to async sequence cancellation check between values")
-    func testAsyncSequenceCancellationBetweenValues() async {
+    func testAsyncSequenceCancellationBetweenValues() async throws {
         var receivedValues: [String] = []
         var cancelledCalled = false
         var completedCalled = false
@@ -650,18 +680,41 @@ struct TaskRunAsyncSequenceTests {
                 completedCalled = true
             }
         )
-        Task {
-            while receivedValues.isEmpty {
-                try? await Task.sleep(nanoseconds: .millisecond)
-            }
+        let cancellationTask = Task {
+            try await waitUntil { !receivedValues.isEmpty }
             task.cancel()
         }
 
+        try await cancellationTask.value
         await task.value
 
         #expect(receivedValues == ["first"])
         #expect(cancelledCalled == true)
         #expect(completedCalled == true)
+    }
+
+    @Test("run to async sequence does not request another value after callback cancellation")
+    func testAsyncSequenceDoesNotRequestValueAfterCallbackCancellation() async {
+        let nextCallCounter = NextCallCounter()
+        let asyncSequence = CountingAsyncSequence(
+            elements: [1, 2],
+            onNext: {
+                await nextCallCounter.increment()
+            }
+        )
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: { _ in
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            }
+        )
+
+        await task.value
+        let nextCallCount = await nextCallCounter.value
+
+        #expect(nextCallCount == 1)
     }
 
     @Test("run to void async sequence receives all values")
@@ -913,6 +966,36 @@ struct TaskRunAsyncSequenceTests {
         await task.value
 
         #expect(callOrder == ["onValue", "beforeError", "onError", "onCompleted"])
+    }
+
+    @Test("run to void async sequence keeps error and cancellation callbacks mutually exclusive")
+    func testVoidAsyncSequenceErrorCallbackCancellationDoesNotCallOnCanceled() async {
+        var callOrder: [String] = []
+        struct TestError: Error {}
+        let asyncSequence = AsyncThrowingStream<Void, Error> { continuation in
+            continuation.finish(throwing: TestError())
+        }
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: {},
+            onError: { _ in
+                callOrder.append("onError")
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            },
+            onCanceled: {
+                callOrder.append("onCanceled")
+            },
+            onCompleted: {
+                callOrder.append("onCompleted")
+            }
+        )
+
+        await task.value
+
+        #expect(task.isCancelled)
+        #expect(callOrder == ["onError", "onCompleted"])
     }
 
     @Test("run to void async sequence handles cancellation during iteration")
@@ -1237,7 +1320,7 @@ struct TaskRunAsyncSequenceTests {
     }
 
     @Test("run to void async sequence cancellation check between values")
-    func testVoidAsyncSequenceCancellationBetweenValues() async {
+    func testVoidAsyncSequenceCancellationBetweenValues() async throws {
         var valueCount = 0
         var cancelledCalled = false
         var completedCalled = false
@@ -1262,18 +1345,41 @@ struct TaskRunAsyncSequenceTests {
                 completedCalled = true
             }
         )
-        Task {
-            while valueCount == 0 {
-                try? await Task.sleep(nanoseconds: .millisecond)
-            }
+        let cancellationTask = Task {
+            try await waitUntil { valueCount > 0 }
             task.cancel()
         }
 
+        try await cancellationTask.value
         await task.value
 
         #expect(valueCount == 1)
         #expect(cancelledCalled == true)
         #expect(completedCalled == true)
+    }
+
+    @Test("run to void async sequence does not request another value after callback cancellation")
+    func testVoidAsyncSequenceDoesNotRequestValueAfterCallbackCancellation() async {
+        let nextCallCounter = NextCallCounter()
+        let asyncSequence = CountingAsyncSequence(
+            elements: [(), ()],
+            onNext: {
+                await nextCallCounter.increment()
+            }
+        )
+        let task = Task.run(
+            sequence: asyncSequence,
+            onValue: {
+                unsafe withUnsafeCurrentTask { task in
+                    unsafe task?.cancel()
+                }
+            }
+        )
+
+        await task.value
+        let nextCallCount = await nextCallCounter.value
+
+        #expect(nextCallCount == 1)
     }
 
     @Test("run to void async sequence signal counting")
@@ -1304,5 +1410,49 @@ struct TaskRunAsyncSequenceTests {
 
         #expect(signalCount == numberOfSignals)
         #expect(completedCalled == true)
+    }
+}
+
+private actor NextCallCounter {
+    private(set) var value = 0
+
+    func increment() {
+        value += 1
+    }
+}
+
+private nonisolated struct CountingAsyncSequence<Element: Sendable>: AsyncSequence, Sendable {
+    private let elements: [Element]
+    private let onNext: @Sendable () async -> Void
+
+    init(elements: [Element], onNext: @escaping @Sendable () async -> Void) {
+        self.elements = elements
+        self.onNext = onNext
+    }
+
+    func makeAsyncIterator() -> AsyncIterator {
+        AsyncIterator(elements: elements, onNext: onNext)
+    }
+
+    nonisolated struct AsyncIterator: AsyncIteratorProtocol, Sendable {
+        private let elements: [Element]
+        private let onNext: @Sendable () async -> Void
+        private var index = 0
+
+        init(elements: [Element], onNext: @escaping @Sendable () async -> Void) {
+            self.elements = elements
+            self.onNext = onNext
+        }
+
+        mutating func next() async -> Element? {
+            await onNext()
+            guard index < elements.endIndex else {
+                return nil
+            }
+            defer {
+                index += 1
+            }
+            return elements[index]
+        }
     }
 }

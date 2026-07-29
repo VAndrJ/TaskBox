@@ -7,10 +7,12 @@
 
 import Foundation
 
-/// A protocol representing a cancellable `Task`.
+/// A protocol representing a thread-safe cancellable `Task`.
 ///
 /// This protocol provides a type-erased abstraction that allows `Task` instances to be stored in `TaskBox` and cancelled without knowing their specific underlying types.
-public protocol CancellableTask {
+///
+/// Conforming types must make `cancel()` safe to call from any concurrency domain.
+public protocol CancellableTask: Sendable {
     func cancel()
 }
 

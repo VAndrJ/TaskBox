@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - macos-26
+          - xcode-27
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Show Swift version
+        run: swift --version
+
+      - name: Lint Swift formatting
+        run: >
+          xcrun swift-format lint --strict --recursive
+          Package.swift Sources Tests IntegrationTests
+
+      - name: Run optimized package tests
+        run: swift test -c release -Xswiftc -warnings-as-errors
+
+      - name: Build optimized external client
+        run: >
+          swift build
+          --package-path IntegrationTests/ExternalClient
+          --scratch-path "$RUNNER_TEMP/TaskBoxExternalClient"
+          -c release
+          -Xswiftc -warnings-as-errors
+
+      - name: Run external client
+        run: >
+          swift run
+          --package-path IntegrationTests/ExternalClient
+          --scratch-path "$RUNNER_TEMP/TaskBoxExternalClient"
+          -c release
+          --skip-build

@@ -7,13 +7,13 @@
 [![SPM](https://img.shields.io/badge/SPM-compatible-limegreen.svg?style=flat)](https://github.com/apple/swift-package-manager)
 [![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20watchOS%20%7C%20tvOS%20%7C%20macOS%20%7C%20visionOS-lightgray.svg?style=flat)](https://developer.apple.com/discover)
 
-A lightweight Swift package for structuring, managing, and canceling Tasks.
+A lightweight Swift package for organizing, managing, and canceling tasks.
 
 ## Features
 
 - 📦 **Task Management**: Store and manage Tasks in a container
-- 🧬 **Structured Tasks**: Use Swift's Tasks in a structured way
-- ♻️ **Automatic Cancellation**: Tasks are automatically canceled when TaskBox is deallocated
+- 🧬 **Organized Task Workflows**: Wrap unstructured tasks in consistent outcome and completion callbacks
+- ♻️ **Automatic Cancellation Requests**: Cancellation is requested when `TaskBox` is deallocated
 - 🪶 **Simple API**: Minimal interface for Task management
 
 ## Requirements
@@ -57,16 +57,20 @@ Task {
 // Cancel all tasks when needed
 box.cancelAll()
 
-// Or tasks are automatically canceled when TaskBox is deallocated
+// Or cancellation is automatically requested when TaskBox is deallocated
 ```
 
-## Structured Tasks
+Cancellation is cooperative. `TaskBox` calls `cancel()` on each stored task, but the underlying work stops only when it observes and responds to that request.
 
-TaskBox provides powerful structured task creation methods through `Task.run` that help you organize async operations with clear callbacks for different outcomes.
+## Organized Task Workflows
 
-### 🧱 Basic Structured Task
+`Task.run` still creates an unstructured Swift concurrency task. It does not establish the parent-child lifetime or cancellation rules of structured concurrency.
 
-Create tasks with structured callbacks for success, cancellation, and completion:
+Instead, it adds organization around an unstructured task by giving operations and async sequences consistent callbacks for values, success, errors, cancellation, and completion.
+
+### 🧱 Basic Organized Task
+
+Create an unstructured task with organized callbacks for success, cancellation, and completion:
 
 ```swift
 let box = TaskBox()
@@ -160,12 +164,12 @@ class SomeClass {
 - 🧹 **Manual cleanup** in deinit
 
 **TaskBox advantages:**
-- ✅ **Automatic cancellation** when TaskBox is deallocated
-- ✅ **Structured callbacks** for success, error, cancellation, and completion
+- ✅ **Automatic cancellation requests** when TaskBox is deallocated
+- ✅ **Organized callbacks** for success, error, cancellation, and completion
 
 ### ⛓️ Async Sequences
 
-Process async sequences with structured callbacks for each value:
+Process async sequences with organized callbacks for each value:
 
 ```swift
 Task.run(
@@ -243,14 +247,17 @@ class StreamProcessor {
 
 **TaskBox AsyncSequence advantages:**
 - ✅ **Clear separation of concerns** - stream listening vs value processing
-- ✅ **Structured error handling** for failures
+- ✅ **Organized error handling** for failures
 
 
 ### Actor Isolation
 
-TaskBox uses Swift 6.2 package-level default isolation with `MainActor` (`.defaultIsolation(MainActor.self)` in `Package.swift`), 
-so public APIs of `TaskBox` class are MainActor-isolated by default.
+`TaskBox` does not impose a global actor. Its state is protected by a lock, and its synchronous API can be used safely from `MainActor`,
+custom actors, and nonisolated code. Custom `CancellableTask` conformers must be `Sendable` and make `cancel()` safe to call from any
+concurrency domain.
 
+The `Task.run` factory methods are explicitly nonisolated. Their operation and callback closures inherit isolation from the call site:
+calls from `MainActor` remain MainActor-isolated, while calls from another actor retain that actor's isolation.
 
 ## 📄 License
 

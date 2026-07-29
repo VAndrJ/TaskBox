@@ -9,7 +9,7 @@ import Testing
 
 @testable import TaskBox
 
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct TaskRunNonThrowingTests {
     @Test("run executes operation and calls onSuccess when not cancelled")
     func testRunSuccessFlow() async {
@@ -478,5 +478,96 @@ struct TaskRunNonThrowingTests {
         await task.value
 
         #expect(callOrder == ["operation", "onCanceled", "onCompleted"])
+    }
+
+    @Test("operation run overloads inherit a custom actor context")
+    func testOperationRunOverloadsInheritCustomActorContext() async {
+        let recorder = TaskRunActorRecorder()
+
+        let callOrder = await recorder.exerciseAllOverloads()
+
+        #expect(
+            callOrder == [
+                "resultOperation",
+                "resultSuccess",
+                "resultCompleted",
+                "voidOperation",
+                "voidSuccess",
+                "voidCompleted",
+                "throwingResultOperation",
+                "throwingResultError",
+                "throwingResultCompleted",
+                "throwingVoidOperation",
+                "throwingVoidError",
+                "throwingVoidCompleted",
+            ]
+        )
+    }
+}
+
+private actor TaskRunActorRecorder {
+    private var callOrder: [String] = []
+
+    func exerciseAllOverloads() async -> [String] {
+        struct TestError: Error {}
+
+        let resultTask = Task.run(
+            operation: {
+                self.callOrder.append("resultOperation")
+                return 1
+            },
+            onSuccess: { _ in
+                self.callOrder.append("resultSuccess")
+            },
+            onCompleted: {
+                self.callOrder.append("resultCompleted")
+            }
+        )
+        await resultTask.value
+
+        let voidTask = Task.run(
+            operation: {
+                self.callOrder.append("voidOperation")
+            },
+            onSuccess: {
+                self.callOrder.append("voidSuccess")
+            },
+            onCompleted: {
+                self.callOrder.append("voidCompleted")
+            }
+        )
+        await voidTask.value
+
+        let throwingResultTask = Task.run(
+            operation: { () async throws -> Int in
+                self.callOrder.append("throwingResultOperation")
+                throw TestError()
+            },
+            onSuccess: { _ in },
+            onError: { _ in
+                self.callOrder.append("throwingResultError")
+            },
+            onCompleted: {
+                self.callOrder.append("throwingResultCompleted")
+            }
+        )
+        await throwingResultTask.value
+
+        let throwingVoidTask = Task.run(
+            operation: { () async throws -> Void in
+                self.callOrder.append("throwingVoidOperation")
+                throw TestError()
+            },
+            onSuccess: {},
+            onError: { _ in
+                self.callOrder.append("throwingVoidError")
+            },
+            onCompleted: {
+                self.callOrder.append("throwingVoidCompleted")
+            }
+        )
+        await throwingVoidTask.value
+
+        return callOrder
     }
 }

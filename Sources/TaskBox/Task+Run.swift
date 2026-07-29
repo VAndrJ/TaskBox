@@ -8,10 +8,10 @@
 import Foundation
 
 extension Task where Success == Void, Failure == Never {
-    /// Creates a new `Task` that executes an async operation and provides structured callbacks for different outcomes.
+    /// Creates a new `Task` that executes an async operation and provides organized callbacks for different outcomes.
     ///
-    /// This method provides a clean, structured way to handle async operations with distinct callbacks for success, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -60,7 +60,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Result: Sendable>(
+    public nonisolated static func run<Result: Sendable>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async -> Result,
@@ -82,10 +82,10 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that executes an async operation that returns `Void` and provides structured callbacks for different outcomes.
+    /// Creates a new `Task` that executes an async operation that returns `Void` and provides organized callbacks for different outcomes.
     ///
-    /// This method provides a clean, structured way to handle async operations that don't return a value, with distinct callbacks for success, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -135,7 +135,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run(
+    public nonisolated static func run(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async -> Void,
@@ -157,10 +157,10 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that executes a throwing async operation with structured callbacks for different outcomes and error handling.
+    /// Creates a new `Task` that executes a throwing async operation with organized callbacks for different outcomes and error handling.
     ///
-    /// This method provides a clean, structured way to handle throwing async operations with distinct callbacks for success, error, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, error, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -214,7 +214,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Result: Sendable>(
+    public nonisolated static func run<Result: Sendable>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async throws -> Result,
@@ -245,10 +245,10 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that executes a throwing async operation with structured callbacks for different outcomes and error handling.
+    /// Creates a new `Task` that executes a throwing async operation with organized callbacks for different outcomes and error handling.
     ///
-    /// This method provides a clean, structured way to handle throwing async operations that don't return a value, with distinct callbacks for success, error, cancellation, and completion scenarios.
-    /// It's designed to help organize async code while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize success, error, cancellation, and completion handling while maintaining clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -302,7 +302,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run(
+    public nonisolated static func run(
         name: String? = nil,
         priority: TaskPriority? = nil,
         @_inheritActorContext operation: sending @escaping @isolated(any) () async throws -> Void,
@@ -333,11 +333,11 @@ extension Task where Success == Void, Failure == Never {
         }
     }
 
-    /// Creates a new `Task` that runs an async sequence and provides structured callbacks for each value, cancellation, and completion.
+    /// Creates a new `Task` that runs an async sequence and provides organized callbacks for each value, cancellation, and completion.
     ///
-    /// This method provides a clean, structured way to handle async sequences with distinct callbacks for each value received,
-    /// cancellation, and completion scenarios. It's designed to help organize async sequence handling while maintaining clear
-    /// control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize values, errors, cancellation, and completion while maintaining
+    /// clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -356,6 +356,8 @@ extension Task where Success == Void, Failure == Never {
     /// 2. **Error case:** If the task isn't canceled but the sequence throws an error, `onError` is called.
     /// 3. **Cancellation case:** If the task is canceled, `onCanceled` is called.
     /// 4. **Always:** The `onCompleted` callback is always called last, regardless of error or cancellation.
+    ///
+    /// The error and cancellation callbacks are mutually exclusive. The terminal outcome is selected before either callback runs.
     ///
     /// ## Usage Example
     ///
@@ -389,7 +391,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Sequence: AsyncSequence>(
+    public nonisolated static func run<Sequence: AsyncSequence & SendableMetatype>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         sequence: sending Sequence,
@@ -397,14 +399,23 @@ extension Task where Success == Void, Failure == Never {
         @_inheritActorContext onError: sending @escaping @isolated(any) (any Error) async -> Void = { _ in },
         @_inheritActorContext onCanceled: sending @escaping @isolated(any) () async -> Void = {},
         @_inheritActorContext onCompleted: sending @escaping @isolated(any) () async -> Void = {}
-    ) -> Self where Sequence.Element: Sendable {
+    ) -> Self where Sequence.Element: Sendable, Sequence.AsyncIterator: SendableMetatype {
         return Task(
             name: name,
             priority: priority
         ) {
             var wasCancelled = false
+            var terminalError: (any Error)?
             do {
-                for try await unsafe value in sequence {
+                var iterator = sequence.makeAsyncIterator()
+                while true {
+                    if CancellationCheckTask.isCancelled {
+                        wasCancelled = true
+                        break
+                    }
+                    guard let value = try await iterator.next() else {
+                        break
+                    }
                     if CancellationCheckTask.isCancelled {
                         wasCancelled = true
                         break
@@ -415,24 +426,26 @@ extension Task where Success == Void, Failure == Never {
                 if CancellationCheckTask.isCancelled {
                     wasCancelled = true
                 } else {
-                    await onError(error)
+                    terminalError = error
                 }
             }
-            if !wasCancelled && CancellationCheckTask.isCancelled {
+            if terminalError == nil && !wasCancelled && CancellationCheckTask.isCancelled {
                 wasCancelled = true
             }
-            if wasCancelled {
+            if let terminalError {
+                await onError(terminalError)
+            } else if wasCancelled {
                 await onCanceled()
             }
             await onCompleted()
         }
     }
 
-    /// Creates a new `Task` that runs an async sequence with `Void` elements and provides structured callbacks for each value, cancellation, and completion.
+    /// Creates a new `Task` that runs an async sequence with `Void` elements and provides organized callbacks for each value, cancellation, and completion.
     ///
-    /// This method provides a clean, structured way to handle async sequences that emit `Void` values (typically used for signaling events
-    /// rather than data), with distinct callbacks for each value received, cancellation, and completion scenarios. It's designed to help
-    /// organize async sequence handling while maintaining clear control over memory management and actor isolation.
+    /// The returned task is unstructured: this method does not establish a structured-concurrency parent-child relationship.
+    /// It provides a consistent, callback-based way to organize signals, errors, cancellation, and completion while maintaining
+    /// clear control over memory management and actor isolation.
     ///
     /// ## Memory Management Considerations
     ///
@@ -451,6 +464,8 @@ extension Task where Success == Void, Failure == Never {
     /// 2. **Error case:** If the task isn't canceled but the sequence throws an error, `onError` is called.
     /// 3. **Cancellation case:** If the task is canceled, `onCanceled` is called.
     /// 4. **Always:** The `onCompleted` callback is always called last, regardless of error or cancellation.
+    ///
+    /// The error and cancellation callbacks are mutually exclusive. The terminal outcome is selected before either callback runs.
     ///
     /// ## Usage Example
     ///
@@ -484,7 +499,7 @@ extension Task where Success == Void, Failure == Never {
     /// - Returns: The created `Task`, which can be stored to control cancellation.
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     @discardableResult
-    public static func run<Sequence: AsyncSequence>(
+    public nonisolated static func run<Sequence: AsyncSequence & SendableMetatype>(
         name: String? = nil,
         priority: TaskPriority? = nil,
         sequence: sending Sequence,
@@ -492,14 +507,23 @@ extension Task where Success == Void, Failure == Never {
         @_inheritActorContext onError: sending @escaping @isolated(any) (any Error) async -> Void = { _ in },
         @_inheritActorContext onCanceled: sending @escaping @isolated(any) () async -> Void = {},
         @_inheritActorContext onCompleted: sending @escaping @isolated(any) () async -> Void = {}
-    ) -> Self where Sequence.Element == Void {
+    ) -> Self where Sequence.Element == Void, Sequence.AsyncIterator: SendableMetatype {
         return Task(
             name: name,
             priority: priority
         ) {
             var wasCancelled = false
+            var terminalError: (any Error)?
             do {
-                for try await unsafe _ in sequence {
+                var iterator = sequence.makeAsyncIterator()
+                while true {
+                    if CancellationCheckTask.isCancelled {
+                        wasCancelled = true
+                        break
+                    }
+                    guard try await iterator.next() != nil else {
+                        break
+                    }
                     if CancellationCheckTask.isCancelled {
                         wasCancelled = true
                         break
@@ -510,13 +534,15 @@ extension Task where Success == Void, Failure == Never {
                 if CancellationCheckTask.isCancelled {
                     wasCancelled = true
                 } else {
-                    await onError(error)
+                    terminalError = error
                 }
             }
-            if !wasCancelled && CancellationCheckTask.isCancelled {
+            if terminalError == nil && !wasCancelled && CancellationCheckTask.isCancelled {
                 wasCancelled = true
             }
-            if wasCancelled {
+            if let terminalError {
+                await onError(terminalError)
+            } else if wasCancelled {
                 await onCanceled()
             }
             await onCompleted()
