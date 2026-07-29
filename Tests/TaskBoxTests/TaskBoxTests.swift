@@ -91,6 +91,23 @@ struct TaskBoxTests {
         #expect(task.isCancelled)
     }
 
+    @Test("TaskBox retains tasks inserted during cancellation")
+    func testReentrantInsertionDuringCancelAll() {
+        let box = TaskBox()
+        let reentrantTask = ReentrantCancellableTask(box: box)
+        box.insert(reentrantTask)
+
+        box.cancelAll()
+
+        #expect(reentrantTask.spawnedTask?.isCancelled == false)
+        #expect(box.debugDescription == "TaskBox(tasks: 1)")
+
+        box.cancelAll()
+
+        #expect(reentrantTask.spawnedTask?.isCancelled == true)
+        #expect(box.debugDescription == "TaskBox(tasks: 0)")
+    }
+
     @Test("TaskBox can store multiple different task types")
     func testTaskBoxWithDifferentTaskTypes() async {
         let box = TaskBox()
@@ -133,5 +150,22 @@ struct TaskBoxTests {
 
         box.insert(quickTask)
         box.cancelAll()
+    }
+}
+
+private final class ReentrantCancellableTask: CancellableTask {
+    let box: TaskBox
+    var spawnedTask: Task<Void, Never>?
+
+    init(box: TaskBox) {
+        self.box = box
+    }
+
+    func cancel() {
+        let task = Task<Void, Never> {
+            try? await Task.sleep(nanoseconds: .second)
+        }
+        spawnedTask = task
+        box.insert(task)
     }
 }
